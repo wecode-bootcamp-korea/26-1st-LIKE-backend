@@ -35,8 +35,12 @@ class ProductListView(View):
         
         # redis cache
         if cache.get('products'):
-            data=cache.get('products')
-            return JsonResponse({'results' : data}, status = 200)
+            data = cache.get('products')
+        else:
+            data = Product.objects.select_related('sub_category__main_category')\
+                                  .prefetch_related('productoption_set__size', 'productoption_set__color').distinct()\
+                                  .order_by(ordering)
+            cache.set('products', data)
 
         results = [{
             "product"             : product.id,
@@ -51,13 +55,9 @@ class ProductListView(View):
             "quantity"            : product.productoption_set.values('quantity').aggregate(Sum('quantity'))['quantity__sum'],
             "sub_category"        : product.sub_category.name,  
             "main_category"       : product.sub_category.main_category.name
-        } for product in Product.objects.filter(**filter_set)\
-                                        .select_related('sub_category__main_category')\
-                                        .prefetch_related('productoption_set__size', 'productoption_set__color').distinct()
-                                        .order_by(ordering)]
+        } for product in data.filter(**filter_set)]
 
-        data = cache.set('products', results)
-        return JsonResponse({'results' : data}, status = 200)
+        return JsonResponse({'results' : results}, status = 200)
 
 class DetailView(View):
     @count_queries
