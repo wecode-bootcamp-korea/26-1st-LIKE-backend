@@ -38,8 +38,7 @@ class ProductListView(View):
             data = cache.get('products')
         else:
             data = Product.objects.select_related('sub_category__main_category')\
-                                  .prefetch_related('productoption_set__size', 'productoption_set__color').distinct()\
-                                  .order_by(ordering)
+                                  .prefetch_related('productoption_set__size', 'productoption_set__color').distinct()
             cache.set('products', data)
 
         results = [{
@@ -50,12 +49,12 @@ class ProductListView(View):
             "price"               : float(product.price),
             "thumbnail_image_url" : product.thumbnail_image_url,
             "eco_friendly"        : product.eco_friendly,
-            "color"               : product.productoption_set.first().color.name,
+            "color"               : product.productoption_set.first().color.name if product.productoption_set.first() else '',
             "size"                : [po.size.type for po in product.productoption_set.all()],
             "quantity"            : product.productoption_set.values('quantity').aggregate(Sum('quantity'))['quantity__sum'],
             "sub_category"        : product.sub_category.name,  
             "main_category"       : product.sub_category.main_category.name
-        } for product in data.filter(**filter_set)]
+        } for product in data.filter(**filter_set).order_by(ordering)]
 
         return JsonResponse({'results' : results}, status = 200)
 
